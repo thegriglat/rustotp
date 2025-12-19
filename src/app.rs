@@ -16,7 +16,6 @@ use ratatui::{
 };
 
 pub struct App {
-    path: String,
     entries: Vec<TOTPEntry>,
     selected_index: Option<usize>,
     should_quit: bool,
@@ -24,11 +23,12 @@ pub struct App {
 
 impl App {
     pub fn new(config: Args) -> Self {
+        let entries = Self::load_entries(&config.data);
+        let selected_index = if entries.is_empty() { None } else { Some(0) };
         Self {
-            path: config.data.clone(),
-            entries: Self::load_entries(&config.data),
+            entries,
+            selected_index,
             should_quit: false,
-            selected_index: None,
         }
     }
 
@@ -74,23 +74,6 @@ impl App {
         entries
     }
 
-    fn save_entries(&self) {
-        let mut data_file = std::fs::File::create(&self.path).expect("Cannot open --data file");
-        for entry in &self.entries {
-            use std::io::Write;
-            writeln!(data_file, "{}", entry.dump()).expect("Cannot write to data file");
-        }
-    }
-
-    fn delete_entry(&mut self) {
-        if let Some(index) = self.selected_index {
-            if index < self.entries.len() {
-                self.entries.remove(index);
-                self.selected_index = None;
-            }
-        }
-    }
-
     fn move_up(&mut self) {
         if let Some(index) = self.selected_index {
             if index > 0 {
@@ -114,11 +97,8 @@ impl App {
     fn handle_key(&mut self, key: KeyEvent) {
         match key.code {
             KeyCode::Char('q') | KeyCode::Esc => self.should_quit = true,
-            KeyCode::Char('d') | KeyCode::Delete => self.delete_entry(),
-            KeyCode::Char('s') => self.save_entries(),
             KeyCode::Up => self.move_up(),
             KeyCode::Down => self.move_down(),
-            // KeyCode::Char('a') | KeyCode::Insert => self.add_new_entry(),
             _ => {}
         }
     }
@@ -174,15 +154,14 @@ impl App {
         Table::new(rows, [Constraint::Length(25), Constraint::Min(10)])
             .header(header)
             .row_highlight_style(Style::default().bg(Color::Blue))
-            .block(Block::bordered().title("Entries"))
+            .block(Block::bordered().title("TOTP codes"))
     }
 
     fn get_footer() -> impl Widget {
-        Paragraph::new("q: Quit, a: Add, d: Delete").block(Block::bordered().title("Hotkeys"))
+        Paragraph::new("q: Quit").block(Block::bordered().title("Hotkeys"))
     }
 
     fn get_header() -> impl Widget {
-        Paragraph::new("RustOTP - Experimental TUI OTP Manager")
-            .block(Block::bordered().title("Header"))
+        Paragraph::new("RustOTP - TUI OTP Viewer").block(Block::bordered().title("Header"))
     }
 }

@@ -26,10 +26,6 @@ impl TOTPEntry {
         self.totp.generate_current().unwrap()
     }
 
-    pub fn dump(&self) -> String {
-        format!("{}={}", self.name, self.totp.get_secret_base32())
-    }
-
     pub fn parse(s: &str) -> Self {
         let parts: Vec<&str> = s.split("=").collect();
         if parts.len() != 2 {
