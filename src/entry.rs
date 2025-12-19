@@ -1,11 +1,11 @@
 use totp_rs::{Algorithm, Secret, TOTP};
 
-pub struct Entry {
+pub struct TOTPEntry {
     pub name: String,
     totp: TOTP,
 }
 
-impl Entry {
+impl TOTPEntry {
     pub fn new(name: &str, secret: &str) -> Self {
         let totp = TOTP::new(
             Algorithm::SHA1,
@@ -16,7 +16,7 @@ impl Entry {
         )
         .expect("Cannot create TOTP instance");
 
-        Entry {
+        TOTPEntry {
             name: name.to_string(),
             totp,
         }
@@ -35,6 +35,6 @@ impl Entry {
         if parts.len() != 2 {
             panic!("Invalid entry format");
         }
-        Entry::new(parts[0], parts[1])
+        TOTPEntry::new(parts[0], parts[1])
     }
 }
