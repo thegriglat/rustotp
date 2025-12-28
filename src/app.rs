@@ -12,7 +12,7 @@ use ratatui::{
     layout::{self, Constraint, Layout},
     style::{Color, Style},
     text::Text,
-    widgets::{Block, Cell, Paragraph, Row, Table, Widget},
+    widgets::{Block, Cell, Gauge, Paragraph, Row, Table, Widget},
 };
 
 pub struct App {
@@ -123,22 +123,26 @@ impl App {
                     Constraint::Length(3),
                     Constraint::Min(0),
                     Constraint::Length(3),
+                    Constraint::Length(3),
                 ]
                 .as_ref(),
             )
             .split(frame.area());
-        let (header_area, content_area, footer_area) =
-            (main_layout[0], main_layout[1], main_layout[2]);
+        let (header_area, content_area, progress_area, footer_area) = (
+            main_layout[0],
+            main_layout[1],
+            main_layout[2],
+            main_layout[3],
+        );
 
         frame.render_widget(Self::get_header(), header_area);
-
+        frame.render_widget(self.get_progress(), progress_area);
         frame.render_widget(self.get_content(), content_area);
-
         frame.render_widget(Self::get_footer(), footer_area);
     }
 
     fn get_content(&mut self) -> impl Widget {
-        let row_highlight_style = Style::default().bg(Color::White).fg(Color::Black);
+        let (_, remaining) = self.get_percent_remaining().unwrap_or((100, 30));
 
         let header = ["Name", "Code"]
             .into_iter()
@@ -149,18 +153,16 @@ impl App {
         let rows = self.entries.iter().enumerate().map(|(idx, data)| {
             let name = data.name.clone();
             let code = data.current_code();
-            let row = [name, code]
-                .into_iter()
-                .map(|content| Cell::from(Text::from(format!("{content}"))))
-                .collect::<Row>()
-                .height(1);
+            let name = Cell::from(Text::from(name));
+            let code = Cell::from(Text::from(code).style(Self::get_cell_style(remaining)));
+            let row = Row::new([name, code]);
 
-            if let Some(selected_index) = self.selected_index {
-                if idx == selected_index {
-                    return row.style(row_highlight_style);
-                }
-            }
-            row
+            let is_selected = match self.selected_index {
+                Some(selected_index) => idx == selected_index,
+                None => false,
+            };
+
+            row.style(Self::get_row_style(is_selected))
         });
 
         Table::new(rows, [Constraint::Length(25), Constraint::Min(10)])
@@ -169,11 +171,52 @@ impl App {
             .block(Block::bordered().title("TOTP codes"))
     }
 
+    fn get_row_style(is_selected: bool) -> Style {
+        let mut style = Style::default();
+
+        if is_selected {
+            style = style.bg(Color::White).fg(Color::Black);
+        }
+
+        style
+    }
+
+    fn get_cell_style(remaining: u16) -> Style {
+        let mut style = Style::default();
+
+        if remaining < 5 {
+            style = style.bg(Color::Black).fg(Color::Yellow);
+        }
+
+        style
+    }
+
     fn get_footer() -> impl Widget {
         Paragraph::new("q: Quit").block(Block::bordered().title("Hotkeys"))
     }
 
     fn get_header() -> impl Widget {
         Paragraph::new("RustOTP - TUI OTP Viewer").block(Block::bordered().title("Header"))
+    }
+
+    fn get_progress(&self) -> impl Widget {
+        let (percent, remaining) = match self.get_percent_remaining() {
+            Some((p, r)) => (p, r),
+            None => (100, 30),
+        };
+        Gauge::default()
+            .block(Block::bordered())
+            .percent(percent)
+            .label(format!("{remaining}s"))
+    }
+
+    fn get_percent_remaining(&self) -> Option<(u16, u16)> {
+        if let Some(first_entry) = self.entries.first() {
+            let remaining = first_entry.remaining_seconds();
+            let percent = ((30 - remaining) as f64 / 30.0 * 100.0).round() as u16;
+            Some((100 - percent, remaining as u16))
+        } else {
+            None
+        }
     }
 }

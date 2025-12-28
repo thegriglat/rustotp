@@ -1,3 +1,5 @@
+use std::time::{SystemTime, UNIX_EPOCH};
+
 use totp_rs::{Algorithm, Secret, TOTP};
 
 pub struct TOTPEntry {
@@ -24,6 +26,17 @@ impl TOTPEntry {
 
     pub fn current_code(&self) -> String {
         self.totp.generate_current().unwrap()
+    }
+
+    pub fn remaining_seconds(&self) -> u16 {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        let next_step = self.totp.next_step_current().unwrap();
+
+        // 4. Считаем остаток
+        (next_step - now) as u16
     }
 
     pub fn parse(s: &str) -> Self {
