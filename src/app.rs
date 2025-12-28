@@ -199,7 +199,7 @@ impl App {
     fn get_cell_style(remaining: u16) -> Style {
         let mut style = Style::default();
 
-        if remaining < 5 {
+        if remaining <= 5 {
             style = style.bg(Color::Black).fg(Color::Yellow);
         }
 
