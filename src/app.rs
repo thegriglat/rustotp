@@ -3,7 +3,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::{args::Args, entry::TOTPEntry};
+use crate::entry::TOTPEntry;
 
 use color_eyre::Result;
 use crossterm::event::{self, Event, KeyCode, KeyEvent};
@@ -22,8 +22,10 @@ pub struct App {
 }
 
 impl App {
-    pub fn new(config: Args) -> Self {
-        let entries = Self::load_entries(&config.data);
+    pub fn new() -> Self {
+        let data_file = Self::init_file();
+        println!("Using data file: {}", data_file);
+        let entries = Self::load_entries(&data_file);
         let selected_index = if entries.is_empty() { None } else { Some(0) };
         Self {
             entries,
@@ -54,6 +56,16 @@ impl App {
         }
 
         Ok(())
+    }
+
+    fn init_file() -> String {
+        let mut home_dir = dirs::data_dir().expect("Cannot find data directory");
+        home_dir.push("rustotp.txt");
+        if !home_dir.exists() {
+            std::fs::File::create(&home_dir)
+                .expect(format!("Cannot create file '{}'", home_dir.display()).as_str());
+        }
+        home_dir.display().to_string()
     }
 
     fn load_entries(file: &str) -> Vec<TOTPEntry> {

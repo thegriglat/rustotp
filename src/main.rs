@@ -1,5 +1,4 @@
-use crate::{app::App, args::Args};
-use clap::Parser;
+use crate::{app::App};
 use color_eyre::Result;
 use std::time::Duration;
 
@@ -10,8 +9,7 @@ mod entry;
 fn main() -> Result<()> {
     color_eyre::install()?;
 
-    let args = Args::parse();
-    let mut app = App::new(args);
+    let mut app = App::new();
 
     let terminal = ratatui::init();
     app.run(terminal, Duration::from_millis(500))?;
