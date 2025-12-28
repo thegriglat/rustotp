@@ -1,10 +1,12 @@
 use std::{
     io::Read,
+    sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
 
 use crate::entry::TOTPEntry;
 
+use arboard::Clipboard;
 use color_eyre::Result;
 use crossterm::event::{self, Event, KeyCode, KeyEvent};
 use ratatui::{
@@ -19,6 +21,7 @@ pub struct App {
     entries: Vec<TOTPEntry>,
     selected_index: Option<usize>,
     should_quit: bool,
+    clipboard: Option<Arc<Mutex<Clipboard>>>,
 }
 
 impl App {
@@ -27,10 +30,15 @@ impl App {
         println!("Using data file: {}", data_file);
         let entries = Self::load_entries(&data_file);
         let selected_index = if entries.is_empty() { None } else { Some(0) };
+        let clipboard = match Clipboard::new() {
+            Ok(c) => Some(Arc::new(Mutex::new(c))),
+            Err(_) => None,
+        };
         Self {
             entries,
             selected_index,
             should_quit: false,
+            clipboard,
         }
     }
 
@@ -111,6 +119,13 @@ impl App {
             KeyCode::Char('q') | KeyCode::Esc => self.should_quit = true,
             KeyCode::Up => self.move_up(),
             KeyCode::Down => self.move_down(),
+            KeyCode::Char('c') => {
+                if let Some(index) = self.selected_index {
+                    let entry = &self.entries[index];
+                    let code = entry.current_code();
+                    self.copy_to_clipboard(&code);
+                }
+            }
             _ => {}
         }
     }
@@ -192,7 +207,7 @@ impl App {
     }
 
     fn get_footer() -> impl Widget {
-        Paragraph::new("q: Quit").block(Block::bordered().title("Hotkeys"))
+        Paragraph::new("q: Quit, c: Copy code").block(Block::bordered().title("Hotkeys"))
     }
 
     fn get_header() -> impl Widget {
@@ -217,6 +232,14 @@ impl App {
             Some((100 - percent, remaining as u16))
         } else {
             None
+        }
+    }
+
+    fn copy_to_clipboard(&mut self, text: &str) {
+        if let Some(clipboard) = &self.clipboard {
+            if let Ok(mut cb) = clipboard.lock() {
+                let _ = cb.set_text(text.to_string());
+            }
         }
     }
 }
