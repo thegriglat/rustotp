@@ -52,10 +52,10 @@ impl App {
                 .checked_sub(last_tick.elapsed())
                 .unwrap_or(Duration::from_secs(0));
 
-            if event::poll(timeout)? {
-                if let Event::Key(key) = event::read()? {
-                    self.handle_key(key);
-                }
+            if event::poll(timeout)?
+                && let Event::Key(key) = event::read()?
+            {
+                self.handle_key(key);
             }
 
             if last_tick.elapsed() >= tick_rate {
@@ -71,7 +71,7 @@ impl App {
         home_dir.push("rustotp.txt");
         if !home_dir.exists() {
             std::fs::File::create(&home_dir)
-                .expect(format!("Cannot create file '{}'", home_dir.display()).as_str());
+                .unwrap_or_else(|_| panic!("Cannot create file '{}'", home_dir.display()));
         }
         home_dir.display().to_string()
     }
@@ -166,18 +166,17 @@ impl App {
             .height(1);
 
         let rows = self.entries.iter().enumerate().map(|(idx, data)| {
-            let name = data.name.clone();
-            let code = data.current_code();
-            let name = Cell::from(Text::from(name));
-            let code = Cell::from(Text::from(code).style(Self::get_cell_style(remaining)));
-            let row = Row::new([name, code]);
-
             let is_selected = match self.selected_index {
                 Some(selected_index) => idx == selected_index,
                 None => false,
             };
+            let name = data.name.clone();
+            let code = data.current_code();
+            let name = Cell::from(Text::from(name));
+            let code = Cell::from(Text::from(code));
+            let row = Row::new([name, code]);
 
-            row.style(Self::get_row_style(is_selected))
+            row.style(Self::get_cell_style(remaining, is_selected))
         });
 
         Table::new(rows, [Constraint::Length(25), Constraint::Min(10)])
@@ -186,18 +185,16 @@ impl App {
             .block(Block::bordered().title("TOTP codes"))
     }
 
-    fn get_row_style(is_selected: bool) -> Style {
+    fn get_cell_style(remaining: u16, is_selected: bool) -> Style {
         let mut style = Style::default();
+
+        if is_selected && remaining <= 5 {
+            return style.bg(Color::Yellow).fg(Color::Black);
+        }
 
         if is_selected {
             style = style.bg(Color::White).fg(Color::Black);
         }
-
-        style
-    }
-
-    fn get_cell_style(remaining: u16) -> Style {
-        let mut style = Style::default();
 
         if remaining <= 5 {
             style = style.bg(Color::Black).fg(Color::Yellow);
@@ -211,7 +208,7 @@ impl App {
     }
 
     fn get_header() -> impl Widget {
-        Paragraph::new("RustOTP - TUI OTP Viewer").block(Block::bordered().title("Header"))
+        Paragraph::new("RustOTP - TUI OTP Viewer").block(Block::bordered())
     }
 
     fn get_progress(&self) -> impl Widget {
@@ -219,6 +216,7 @@ impl App {
             Some((p, r)) => (p, r),
             None => (100, 30),
         };
+
         Gauge::default()
             .block(Block::bordered())
             .percent(percent)
@@ -229,17 +227,17 @@ impl App {
         if let Some(first_entry) = self.entries.first() {
             let remaining = first_entry.remaining_seconds();
             let percent = ((30 - remaining) as f64 / 30.0 * 100.0).round() as u16;
-            Some((100 - percent, remaining as u16))
+            Some((100 - percent, remaining))
         } else {
             None
         }
     }
 
     fn copy_to_clipboard(&mut self, text: &str) {
-        if let Some(clipboard) = &self.clipboard {
-            if let Ok(mut cb) = clipboard.lock() {
-                let _ = cb.set_text(text.to_string());
-            }
+        if let Some(clipboard) = &self.clipboard
+            && let Ok(mut cb) = clipboard.lock()
+        {
+            let _ = cb.set_text(text.to_string());
         }
     }
 }

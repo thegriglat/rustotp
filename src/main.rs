@@ -1,4 +1,4 @@
-use crate::{app::App};
+use crate::app::App;
 use color_eyre::Result;
 use std::time::Duration;
 
